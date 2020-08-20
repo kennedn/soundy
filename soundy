@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+from pulsectl import Pulse, pulsectl
+from sys import argv
+from getopt import getopt, GetoptError
+
+# Interactive Menu Variables
+# Max length of description field in menu
+MAX_LENGTH = 18
+# Number of words to pull out from description
+WORD_COUNT = 2
+# --------------------------
+
+
+# Prints help
+def help():
+    print("{0} allows changing of pulseaudio sinks in terminal, usage:\n"
+          "\n"
+          "{0} [OPTION] SINK_NAME\n"
+          "-h, --help\n\tThis dialog.\n"
+          "-l, --list\n\tList available sink names\n"
+          "-i, --interactive\n\tInteractive selection mode".format(argv[0]))
+    exit(1)
+
+
+# Generates a pretty menu that lists each sink object
+def generate_menu(sink_list, default_sink_name):
+    items = []
+    for i in range(len(sink_list)):
+        desc = sink_list[i].description
+        # If string has (), capture first WORD_COUNT words from after first occurance of (
+        if "(" in desc:
+            friendly_desc = " ".join(desc.split("(")[-1].split(" ")[:WORD_COUNT]).strip(")")
+        # Capture WORD_COUNT words from end of string
+        else:
+            friendly_desc = " ".join(desc.split(" ")[-WORD_COUNT:])
+
+        # reverse colorscheme using escape characters if current sink is the default
+        if sink_list[i].name == default_sink_name:
+            items.append("{}\t\033[7m{}\033[0m".format(i + 1, friendly_desc[:MAX_LENGTH]))
+        # else just store the description normally
+        else:
+            items.append("{}\t{}".format(i + 1, friendly_desc[:MAX_LENGTH]))
+
+    # Print menu, with spacers that are as long as the longest item in the items list
+    print("Available Sinks:\n"
+          "#\tDescription\n"
+          "{}".format("-" * max([len(i) for i in items])))
+    for i in items:
+        print(i)
+    print("{}".format("-" * max([len(i) for i in items])))
+
+
+# Attempt to derive a sink object by prompting user with interactive menu
+def prompt_user(sink_list, default_sink_name):
+    sink = None
+    # Rerun until we have a sink
+    while sink is None:
+        # print a list of sinks and prompt for a selection
+        generate_menu(sink_list, default_sink_name)
+        response = input("Enter #: ")
+
+        # If the selection is valid, set the sink object
+        if response.isdigit() and int(response) - 1 in range(len(sink_list)):
+            sink = sink_list[int(response) - 1]
+        else:
+            # Print error before repeat
+            print('\033c')
+            input("Please enter a value between 1 and {}".format(len(sink_list)))
+            print('\033c')
+    return sink
+
+
+# Attempts to derive a sink object using a user provided (sub)string of the sinks name
+def parse_remainder(argv, remainder):
+    # Check there is only one trailing argument
+    if len(argv) == 2:
+        sink_search = remainder[0]
+    else:
+        print("Too many arguments\n")
+        help()
+
+    if sink_search is not None:
+        # returns a list of objects that match the sink_search query
+        sink = list(filter(lambda s: sink_search in s.name, sink_list))
+
+        # Return the first item from the search if the list isn't empty
+        if len(sink) == 0:
+            print("Could not find a sink matching {}".format(sink_search))
+            exit(2)
+        else:
+            return sink[0]
+    else:
+        print("Not enough arguments\n")
+        help()
+
+
+try:
+    options, remainder = getopt(argv[1:], 'ilh', ['interactive', 'list', 'help'])
+except GetoptError:
+    help()
+
+# Open a pulse client session, name is arbitrary so just pass script name
+with Pulse(argv[0]) as pulse:
+    sink = None
+    sink_list = pulse.sink_list()
+    default_sink_name = pulse.server_info().default_sink_name
+
+    # Process command line options
+    for opt, arg in options:
+        if opt in ('-l', '--list'):
+            for sink in sink_list:
+                print(sink.name)
+            exit(0)
+        elif opt in ('-h', '--help'):
+            help()
+        elif opt in ('-i', '--interactive'):
+            sink = prompt_user(sink_list, default_sink_name)
+        else:
+            help()
+
+    # If have made it out of options loop and still don't have a sink,
+    # we should try and generate on from any trailing arguments
+    if sink is None:
+        sink = parse_remainder(argv, remainder)
+
+    # Try and move sink
+    try:
+        # Set new sink as default
+        pulse.sink_default_set(sink)
+
+        # Each previously 'seen' application has a linked stream_restore object that stores its default sink,
+        # each of these objects must be pointed to our new default sink for it to truly become the default
+        for stream in pulse.stream_restore_list():
+            # Duplicate the stream_restore object
+            new_stream = stream
+            # Change device to our new sink
+            new_stream.device = sink.name
+            # Delete old object from storage
+            pulse.stream_restore_delete(stream)
+            # Store our new object with correct sink
+            pulse.stream_restore_write(new_stream)
+
+        # Currently active inputs must be moved to the new sink
+        for sink_input in pulse.sink_input_list():
+            pulse.sink_input_move(sink_input.index, sink.index)
+
+        print("Sink moved to {}".format(sink.description))
+
+    except pulsectl.PulseOperationFailed:
+        print("Unable to move sink to {}".format(sink.description))
