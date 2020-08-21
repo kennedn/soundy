@@ -28,18 +28,18 @@ chmod 744 soundy
 ### Normal
 Normal mode is what the script assumes if you don't pass any flags. It accepts a partial/full sink name.
 
-You can list available card names by passing -l or --list:
+You can list available sink names by passing -l or --list:
 ```console
 ./soundy --list
 alsa_output.usb-C-Media_Electronics_Inc._USB_Advanced_Audio_Device-00.analog-stereo
 alsa_output.pci-0000_01_00.1.hdmi-stereo-extra1
 alsa_output.pci-0000_00_14.2.analog-stereo
 ```
-After which you can pass a partial or full card name without any other arguments to switch to that card:
+After which you can pass a partial or full sink name without any other arguments to switch to that sink:
 ```console
 ./soundy usb
 ```
-**Note if there are more than one cards that have a partial match, the first is selected.**
+**Note if there is more than one sink with a partial match, the first is selected.**
 
 ### Interactive
 Interactive mode allows you to select from available alsa sinks in a user friendly way and can be run by passing -i or --interactive:
