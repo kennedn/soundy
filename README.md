@@ -20,7 +20,7 @@ python3 -m pip install pulsectl
 ```
 You can then run the script by doing the following:
 ```console
-chmod 744 soundx.sh
+chmod 744 soundy
 ./soundy
 ````
 
