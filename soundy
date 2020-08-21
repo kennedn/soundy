@@ -2,6 +2,7 @@
 from pulsectl import Pulse, pulsectl
 from sys import argv
 from getopt import getopt, GetoptError
+from re import compile
 
 # Interactive Menu Variables
 # Max length of description field in menu
@@ -22,32 +23,40 @@ def help():
     exit(1)
 
 
+# Count the number of characters for each string in a list, after stripping ANSI escape sequences and expanding tabs
+# Returns largest number
+def max_string_length(string_list):
+    return max([len(compile(r'\x1b[^m]*m').sub('', s).expandtabs()) for s in string_list])
+
+
 # Generates a pretty menu that lists each sink object
 def generate_menu(sink_list, default_sink_name):
     items = []
     for i in range(len(sink_list)):
         desc = sink_list[i].description
-        # If string has (), capture first WORD_COUNT words from after first occurance of (
+        # If string has (), capture first WORD_COUNT words after last occurance of (
         if "(" in desc:
             friendly_desc = " ".join(desc.split("(")[-1].split(" ")[:WORD_COUNT]).strip(")")
         # Capture WORD_COUNT words from end of string
         else:
             friendly_desc = " ".join(desc.split(" ")[-WORD_COUNT:])
 
-        # reverse colorscheme using escape characters if current sink is the default
+        # Reverse colorscheme using ANSI escape characters if current sink is the default
         if sink_list[i].name == default_sink_name:
             items.append("{}\t\033[7m{}\033[0m".format(i + 1, friendly_desc[:MAX_LENGTH]))
-        # else just store the description normally
+        # Else just store the description normally
         else:
             items.append("{}\t{}".format(i + 1, friendly_desc[:MAX_LENGTH]))
 
-    # Print menu, with spacers that are as long as the longest item in the items list
+    # Print header, with a line of hyphens that expands to match the largest item in list
     print("Available Sinks:\n"
           "#\tDescription\n"
-          "{}".format("-" * max([len(i) for i in items])))
+          "{}".format("-" * max_string_length(items)))
+    # Print each item
     for i in items:
         print(i)
-    print("{}".format("-" * max([len(i) for i in items])))
+    # Print hyphen line footer
+    print("{}".format("-" * max_string_length(items)))
 
 
 # Attempt to derive a sink object by prompting user with interactive menu
