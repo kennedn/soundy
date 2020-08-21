@@ -14,12 +14,12 @@ WORD_COUNT = 2
 
 # Prints help
 def help():
-    print("{0} allows changing of pulseaudio sinks in terminal, usage:\n"
+    print("Usage: {0} [OPTION] [SINK_NAME]\n"
+          "Moves default sink to SINK_NAME, accepts partial or full SINK_NAME.\n"
           "\n"
-          "{0} [OPTION] SINK_NAME\n"
           "-h, --help\n\tThis dialog.\n"
           "-l, --list\n\tList available sink names\n"
-          "-i, --interactive\n\tInteractive selection mode".format(argv[0].split("/")[-1]))
+          "-i, --interactive\n\tInteractive sink selection".format(argv[0].split("/")[-1]))
     exit(1)
 
 
@@ -81,10 +81,11 @@ def prompt_user(sink_list, default_sink_name):
 
 # Attempts to derive a sink object using a user provided (sub)string of the sinks name
 def parse_remainder(argv, remainder):
+    sink_search = None
     # Check there is only one trailing argument
     if len(argv) == 2:
         sink_search = remainder[0]
-    else:
+    elif len(argv) > 2:
         print("Too many arguments\n")
         help()
 
