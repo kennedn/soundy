@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pulsectl import Pulse, pulsectl
 from sys import argv
+from os.path import basename
 from getopt import getopt, GetoptError
 from re import compile
 
@@ -19,7 +20,7 @@ def help():
           "{0} [OPTION] SINK_NAME\n"
           "-h, --help\n\tThis dialog.\n"
           "-l, --list\n\tList available sink names\n"
-          "-i, --interactive\n\tInteractive selection mode".format(argv[0]))
+          "-i, --interactive\n\tInteractive selection mode".format(basename(argv[0])))
     exit(1)
 
 
