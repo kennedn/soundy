@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 from pulsectl import Pulse, pulsectl
+from simple_term_menu import TerminalMenu
 from sys import argv
 from getopt import getopt, GetoptError
 from re import compile
 
 # Interactive Menu Variables
 # Max length of description field in menu
-MAX_LENGTH = 18
+MAX_LENGTH = 22
 # Number of words to pull out from description
 WORD_COUNT = 2
 # --------------------------
@@ -23,61 +24,18 @@ def help():
     exit(1)
 
 
-# Count the number of characters for each string in a list, after stripping ANSI escape sequences and expanding tabs
-# Returns largest number
-def max_string_length(string_list):
-    return max([len(compile(r'\x1b[^m]*m').sub('', s).expandtabs()) for s in string_list])
-
-
-# Generates a pretty menu that lists each sink object
-def generate_menu(sink_list, default_sink_name):
-    items = []
-    for i in range(len(sink_list)):
-        desc = sink_list[i].description
-        # If string has (), capture first WORD_COUNT words after last occurance of (
-        if "(" in desc:
-            friendly_desc = " ".join(desc.split("(")[-1].split(" ")[:WORD_COUNT]).strip(")")
-        # Capture WORD_COUNT words from end of string
-        else:
-            friendly_desc = " ".join(desc.split(" ")[-WORD_COUNT:])
-
-        # Reverse colorscheme using ANSI escape characters if current sink is the default
-        if sink_list[i].name == default_sink_name:
-            items.append("{}\t\033[7m{}\033[0m".format(i + 1, friendly_desc[:MAX_LENGTH]))
-        # Else just store the description normally
-        else:
-            items.append("{}\t{}".format(i + 1, friendly_desc[:MAX_LENGTH]))
-
-    # Print header, with a line of hyphens that expands to match the largest item in list
-    print("Available Sinks:\n"
-          "#\tDescription\n"
-          "{}".format("-" * max_string_length(items)))
-    # Print each item
-    for i in items:
-        print(i)
-    # Print hyphen line footer
-    print("{}".format("-" * max_string_length(items)))
-
-
-# Attempt to derive a sink object by prompting user with interactive menu
 def prompt_user(sink_list, default_sink_name):
-    sink = None
-    # Rerun until we have a sink
-    while sink is None:
-        # print a list of sinks and prompt for a selection
-        generate_menu(sink_list, default_sink_name)
-        response = input("Enter #: ")
+    items = []
+    default_idx = 0
+    for i in range(len(sink_list)):
+        if(sink_list[i].name == default_sink_name):
+            default_idx = i
 
-        # If the selection is valid, set the sink object
-        if response.isdigit() and int(response) - 1 in range(len(sink_list)):
-            sink = sink_list[int(response) - 1]
-        else:
-            # Print error before repeat
-            print('\033c')
-            input("Please enter a value between 1 and {}".format(len(sink_list)))
-            print('\033c')
-    return sink
-
+        desc = sink_list[i].description
+        friendly_desc = " ".join(desc.split(" ")[:WORD_COUNT])
+        items.append(friendly_desc[:MAX_LENGTH])
+    return sink_list[TerminalMenu(items, cursor_index=default_idx,menu_cursor_style=("fg_blue", "bold")).show()]
+    
 
 # Attempts to derive a sink object using a user provided (sub)string of the sinks name
 def parse_remainder(argv, remainder):
@@ -153,8 +111,6 @@ with Pulse(argv[0]) as pulse:
         # Currently active inputs must be moved to the new sink
         for sink_input in pulse.sink_input_list():
             pulse.sink_input_move(sink_input.index, sink.index)
-
-        print("Sink moved to {}".format(sink.description))
 
     except pulsectl.PulseOperationFailed:
         print("Unable to move sink to {}".format(sink.description))
