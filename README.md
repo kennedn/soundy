@@ -16,7 +16,7 @@ To install python3 and dependancies, run the following:
 ```bash
 sudo apt update
 sudo apt install python3 pip3
-python3 -m pip install pulsectl
+python3 -m pip install pulsectl simple_term_menu
 ```
 You can then run the script by doing the following:
 ```bash
